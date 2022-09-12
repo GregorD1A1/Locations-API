@@ -40,6 +40,11 @@ def check_token(function):
     return wrapper
 
 
+@app.route('/')
+def hello():
+    return "Hello"
+
+
 @app.route('/login')
 def login():
     auth_info = request.authorization
@@ -147,4 +152,4 @@ def get_location(location_id):
 #print(User.query.all())
 #print(GeoLocation.query.filter_by(ip='122.3232.2').first())
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=30270)
+    app.run(host='0.0.0.0', port=5000)
