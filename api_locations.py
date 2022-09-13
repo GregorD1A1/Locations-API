@@ -24,6 +24,10 @@ def hello():
 
 @app.route('/login')
 def login():
+    """
+    Function for logging in. Checks login data, and, if it's correct, generates encoded jwt token.
+    :return: json with jwt token or json with login error name.
+    """
     auth_info = request.authorization
 
     response = check_login_data(auth_info)
@@ -38,6 +42,10 @@ def login():
 
 @app.route('/signup', methods=['POST'])
 def signup():
+    """
+    Registration function. Creates new user and adds him to database.
+    :return: json with confirmation of registration or responce that login is occuped.
+    """
     request_data = request.get_json()
     # check if login not exists already
     if User.query.filter_by(login=request_data['login']).first():
@@ -95,6 +103,11 @@ def delete_location(user, location_id):
 
 
 def check_login_data(auth_info):
+    """
+    Checks if login data is correct and if there is such user in database.
+    :param auth_info: Authentication data.
+    :return: Error name or 'Ok' sentence.
+    """
     # check data completeness
     if not auth_info or not auth_info.username or not auth_info.password:
         return 'Empty login/password'
