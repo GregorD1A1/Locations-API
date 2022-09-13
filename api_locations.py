@@ -1,10 +1,9 @@
 from flask import Flask, request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from scripts.db_models import db, GeoLocation, User
+from scripts.decorators import check_token
 import jwt
-from jwt.exceptions import InvalidSignatureError, ExpiredSignatureError
 from datetime import datetime, timedelta
-from functools import wraps
 import requests
 
 
@@ -16,28 +15,6 @@ db.init_app(app)
 app.app_context().push()
 # configuring secret key for our app
 app.config['SECRET_KEY'] = 'Very Hard To Guess Secret Key'
-
-
-def check_token(function):
-    @wraps(function)
-    def wrapper(*args, **kwargs):
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-        else:
-            return jsonify({'response': 'No token here'}), 401
-
-        try:
-            token_data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-        except InvalidSignatureError:
-            return jsonify({'response': 'Wrong token'}), 401
-        except ExpiredSignatureError:
-            return jsonify({'response': 'Token expired'}), 401
-
-        user = User.query.filter_by(login=token_data['login']).first()
-
-        return function(user, *args, **kwargs)
-
-    return wrapper
 
 
 @app.route('/')
@@ -75,7 +52,7 @@ def signup():
 
 
 @app.route('/location', methods=['GET'])
-@check_token
+@check_token(secret_key=app.config['SECRET_KEY'])
 def view_locations(user):
     locations = GeoLocation.query.all()
     locations_dict = {}
@@ -90,7 +67,7 @@ def view_locations(user):
 
 
 @app.route('/location/<ip>', methods=['POST'])
-@check_token
+@check_token(secret_key=app.config['SECRET_KEY'])
 def add_location(user, ip):
     location = requests.get(f'http://api.ipstack.com/{ip}?access_key=1c4aa5438b65c9f5ffca1913d34971f5').json()
     location_record = GeoLocation(
@@ -104,7 +81,7 @@ def add_location(user, ip):
 
 
 @app.route('/location/<location_id>', methods=['DELETE'])
-@check_token
+@check_token(secret_key=app.config['SECRET_KEY'])
 def delete_location(user, location_id):
     location = GeoLocation.query.get(location_id)
 
