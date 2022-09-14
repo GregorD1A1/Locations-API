@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from scripts.db_models import db, GeoLocation, User
 from scripts.decorators import check_token
+from sqlalchemy.exc import OperationalError, IntegrityError
 import jwt
 from datetime import datetime, timedelta
 import requests
@@ -10,6 +11,7 @@ import requests
 app = Flask(__name__)
 # database config
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://j270:AFA7_ce40e3@psql01.mikr.us/db_j270'
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://j270:AFe40e3@psql01.mikr.us/db_j270'
 db.init_app(app)
 # next string we need to put database models into other file without errors
 app.app_context().push()
@@ -29,8 +31,11 @@ def login():
     :return: json with jwt token or json with login error name.
     """
     auth_info = request.authorization
+    try:
+        response = check_login_data(auth_info)
+    except OperationalError:
+        response = "Database connection failed"
 
-    response = check_login_data(auth_info)
     if response != 'Ok':
         return jsonify({"response": response}), 401
 
@@ -43,18 +48,22 @@ def login():
 @app.route('/signup', methods=['POST'])
 def signup():
     """
-    Registration function. Creates new user and adds him to database.
+    Registration function. Creates new user and adds him to database. Checks if there is valid connection with database.
     :return: json with confirmation of registration or responce that login is occuped.
     """
     request_data = request.get_json()
-    # check if login not exists already
-    if User.query.filter_by(login=request_data['login']).first():
-        return jsonify({'response': 'This login is occupied'}), 401
-
     hashed_password = generate_password_hash(request_data['password'], method='sha256')
-    new_user = User(login=request_data['login'], password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
+    # check database conection
+    try:
+        new_user = User(login=request_data['login'], password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+    except OperationalError:
+        return jsonify({'response': 'Database connection failed'}), 401
+    # integrity error appears when we are trying to add to database another value with same unique key
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'response': 'This login is occupied'}), 401
 
     return jsonify({'response': 'New user created'})
 
@@ -62,6 +71,11 @@ def signup():
 @app.route('/location', methods=['GET'])
 @check_token(secret_key=app.config['SECRET_KEY'])
 def view_locations(user):
+    """
+    Shows content of localization's database. Available only for logged in users.
+    :param user: User object, taken from check_tocken decorator.
+    :return: JSON with locations.
+    """
     locations = GeoLocation.query.all()
     locations_dict = {}
     for location in locations:
@@ -77,6 +91,12 @@ def view_locations(user):
 @app.route('/location/<ip>', methods=['POST'])
 @check_token(secret_key=app.config['SECRET_KEY'])
 def add_location(user, ip):
+    """
+    Check ip data on ipstack and adds it to database.
+    :param user: User object, taken from check_tocken decorator.
+    :param ip: ip adress to check parameters.
+    :return: JSON with confirmation.
+    """
     location = requests.get(f'http://api.ipstack.com/{ip}?access_key=1c4aa5438b65c9f5ffca1913d34971f5').json()
     location_record = GeoLocation(
         ip, location['type'], location['continent_name'], location['country_name'], location['city'], location['zip'],
@@ -91,6 +111,12 @@ def add_location(user, ip):
 @app.route('/location/<location_id>', methods=['DELETE'])
 @check_token(secret_key=app.config['SECRET_KEY'])
 def delete_location(user, location_id):
+    """
+    Removes location from database.
+    :param user: User object, taken from check_tocken decorator.
+    :param location_id: Id of location to remove.
+    :return: JSON with confirmation.
+    """
     location = GeoLocation.query.get(location_id)
 
     if not location:
@@ -132,14 +158,9 @@ def get_location(location_id):
     return location_dict
 
 
-#localization = GeoLocation('122.3232.2676', 'ipv5', 'Polska', 'też Polska', 'Wrocek', '50-341', 53.2123133223, 76.5544444553)
-#new_user = User(login='dzik', password='byk')
-# remove whole table
+# recreate whole database
 #db.drop_all()
-#db.create_all() # In case user table doesn't exists already. Else remove it.
-#db.session.add(new_user)
-#db.session.commit() # This is needed to write the changes to database
-#print(User.query.all())
-#print(GeoLocation.query.filter_by(ip='122.3232.2').first())
+#db.create_all()
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
