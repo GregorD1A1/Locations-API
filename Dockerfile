@@ -1,7 +1,7 @@
 # base image from dockerhub
 FROM python:3.8
 
-# set docker image directory
+# set docker image directory inside the container
 WORKDIR /api_docker
 
 # copy everything in that directory

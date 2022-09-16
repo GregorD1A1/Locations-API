@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, make_response
+from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from scripts.db_models import db, GeoLocation, User
 import jwt
@@ -16,6 +17,7 @@ db.init_app(app)
 app.app_context().push()
 # configuring secret key for our app
 app.config['SECRET_KEY'] = 'Very Hard To Guess Secret Key'
+CORS(app)
 
 
 def check_token(function):
@@ -48,7 +50,6 @@ def hello():
 @app.route('/login')
 def login():
     auth_info = request.authorization
-
     response = check_login_data(auth_info)
     if response != 'Ok':
         return jsonify({"response": response}), 401
@@ -56,7 +57,7 @@ def login():
     # encode token
     token = jwt.encode({'login': auth_info.username, 'exp': datetime.utcnow() + timedelta(hours=1)},
                        app.config['SECRET_KEY'], algorithm="HS256")
-    return jsonify({'token': token})
+    return jsonify({'response': '', 'token': token})
 
 
 @app.route('/signup', methods=['POST'])
@@ -81,7 +82,7 @@ def view_locations(user):
     locations_dict = {}
     for location in locations:
         locations_dict[location.id] = {
-            'ip': location.ip, 'ip_type': location.type, 'continent': location.continent_name,
+            'id': location.id, 'ip': location.ip, 'ip_type': location.type, 'continent': location.continent_name,
             'country': location.country_name, 'city': location.city, 'zip_code': location.zip,
             'longitude': location.longitude, 'latitude': location.latitude
         }
