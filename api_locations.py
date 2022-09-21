@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from scripts.db_models import db, GeoLocation, User
@@ -30,6 +30,7 @@ def hello():
 def login():
     """
     Function for logging in. Checks login data, and, if it's correct, generates encoded jwt token.
+    Also checks if there is valid connection with database.
     :return: json with jwt token or json with login error name.
     """
     auth_info = request.authorization
@@ -55,9 +56,9 @@ def signup():
     """
     request_data = request.get_json()
     hashed_password = generate_password_hash(request_data['password'], method='sha256')
+    new_user = User(login=request_data['login'], password=hashed_password)
     # check database conection
     try:
-        new_user = User(login=request_data['login'], password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
     except OperationalError:
@@ -75,7 +76,7 @@ def signup():
 def view_locations(user):
     """
     Shows content of localization's database. Available only for logged in users.
-    :param user: User object, taken from check_tocken decorator.
+    :param user: User object, taken from check_token decorator.
     :return: JSON with locations.
     """
     locations = GeoLocation.query.all()
@@ -94,8 +95,8 @@ def view_locations(user):
 @check_token(secret_key=app.config['SECRET_KEY'])
 def add_location(user, ip):
     """
-    Check ip data on ipstack and adds it to database.
-    :param user: User object, taken from check_tocken decorator.
+    Check ip data on ipstack and adds it to database. Available only for logged in users.
+    :param user: User object, taken from check_token decorator.
     :param ip: ip adress to check parameters.
     :return: JSON with confirmation.
     """
@@ -104,8 +105,12 @@ def add_location(user, ip):
         ip, location['type'], location['continent_name'], location['country_name'], location['city'], location['zip'],
         location['latitude'], location['longitude']
     )
-    db.session.add(location_record)
-    db.session.commit()
+    try:
+        db.session.add(location_record)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'response': 'IP adress already exists'}), 401
 
     return jsonify({'response': 'Your location added'})
 
@@ -114,8 +119,8 @@ def add_location(user, ip):
 @check_token(secret_key=app.config['SECRET_KEY'])
 def delete_location(user, location_id):
     """
-    Removes location from database.
-    :param user: User object, taken from check_tocken decorator.
+    Removes location from database. Available only for logged in users.
+    :param user: User object, taken from check_token decorator.
     :param location_id: Id of location to remove.
     :return: JSON with confirmation.
     """
@@ -149,20 +154,10 @@ def check_login_data(auth_info):
 
     return 'Ok'
 
-
-def get_location(location_id):
-    location = GeoLocation.query.get(location_id)
-    location_dict = {
-            'ip': location.ip, 'ip_type': location.type, 'continent': location.continent_name,
-            'country': location.country_name, 'city': location.city, 'zip_code': location.zip,
-            'longitude': location.longitude, 'latitude': location.latitude
-        }
-    return location_dict
-
-
 # recreate whole database
 #db.drop_all()
 #db.create_all()
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
