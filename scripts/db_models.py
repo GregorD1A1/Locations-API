@@ -8,9 +8,9 @@ class GeoLocation(db.Model):
     ip = db.Column(db.String(40), unique=True)
     type = db.Column(db.String(4))
     continent_name = db.Column(db.String(20))
-    country_name = db.Column(db.String(30))
+    country_name = db.Column(db.String(50))
     city = db.Column(db.String(50))
-    zip = db.Column(db.String(6))
+    zip = db.Column(db.String(15))
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
 
