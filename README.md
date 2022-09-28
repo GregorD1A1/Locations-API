@@ -1,13 +1,9 @@
 # Locations-API
 API:
 
-The API allows to record location data of entered IP addresses. It has registration and authentication functions using JWT. It was created in framewoku Flask. It can be found at the link: 
+The API allows to record location data of entered IP addresses. It has registration and authentication functions using JWT. It was created in the Flask framework. It can be found at the link: 
 
 https://api-sofomo.herokuapp.com/,
-
-while the source code:
-
-https://github.com/GregorD1A1/Locations-API.
 
 Manual operation:
 1. To register, you need to send a POST request to https://api-sofomo.herokuapp.com/signup , containing JSON in the body with login data ({"login": "...", "password": "..."}). For this, use an application that allows you to manually send HTTP requests (such as Postman).
